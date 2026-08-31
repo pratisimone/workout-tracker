@@ -1,0 +1,534 @@
+:root {
+  --bg: #0b0f17;
+  --bg-elevated: #161d2b;
+  --bg-elevated-2: #1e2739;
+  --border: #2a3448;
+  --text: #f3f5f9;
+  --text-dim: #9aa5b8;
+  --accent: #38d68a;
+  --accent-dim: #1f7a52;
+  --yellow: #f2b94b;
+  --red: #ef5f6b;
+  --radius: 16px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  padding-bottom: calc(72px + var(--safe-bottom));
+}
+
+button, input, select {
+  font-family: inherit;
+  color: inherit;
+}
+
+#app { min-height: 100vh; }
+
+.screen {
+  padding: 20px 16px calc(24px + var(--safe-bottom));
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.app-title {
+  font-size: 26px;
+  font-weight: 700;
+  margin: 4px 0 4px;
+}
+
+/* Home */
+.day-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.day-btn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.day-btn:active { background: var(--bg-elevated-2); }
+
+.day-btn-letter {
+  font-size: 34px;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.day-btn-count {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* Cards */
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.card-highlight {
+  border-color: var(--accent-dim);
+  background: linear-gradient(160deg, rgba(56, 214, 138, 0.12), var(--bg-elevated));
+}
+
+.card-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.card-value {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.card-value-big {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+
+.card-sub {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+/* Buttons */
+.primary-btn {
+  width: 100%;
+  background: var(--accent);
+  color: #06251a;
+  border: none;
+  border-radius: 14px;
+  padding: 16px;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.primary-btn:disabled {
+  background: var(--bg-elevated-2);
+  color: var(--text-dim);
+  cursor: not-allowed;
+}
+
+.secondary-btn {
+  width: 100%;
+  background: var(--bg-elevated-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 8px;
+  cursor: pointer;
+  display: block;
+  text-align: center;
+}
+
+.file-label { position: relative; }
+
+.danger-btn {
+  width: 100%;
+  background: rgba(239, 95, 107, 0.12);
+  color: var(--red);
+  border: 1px solid rgba(239, 95, 107, 0.4);
+  border-radius: 12px;
+  padding: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.icon-btn {
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+/* Workout screen */
+.workout-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.workout-progress {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.workout-day {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.exercise-name {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.exercise-note {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--yellow);
+  margin-top: 6px;
+}
+
+.suggestion-box {
+  border-radius: var(--radius);
+  padding: 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.suggestion-title { font-weight: 800; margin-bottom: 4px; }
+.suggestion-text { font-size: 13px; color: var(--text-dim); }
+
+.suggestion-increase { border-color: rgba(56, 214, 138, 0.5); }
+.suggestion-increase .suggestion-title { color: var(--accent); }
+.suggestion-maintain { border-color: rgba(242, 185, 75, 0.5); }
+.suggestion-maintain .suggestion-title { color: var(--yellow); }
+.suggestion-deload_or_review { border-color: rgba(239, 95, 107, 0.5); }
+.suggestion-deload_or_review .suggestion-title { color: var(--red); }
+
+.sets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.set-row {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+
+.set-row-pending { opacity: 0.45; }
+
+.set-row-done {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 10px 14px;
+  background: var(--bg-elevated-2);
+}
+
+.set-index { font-weight: 700; font-size: 13px; color: var(--text-dim); }
+.set-summary { font-size: 13px; }
+
+.set-row-active { display: flex; flex-direction: column; gap: 10px; }
+
+.stepper, .stepper-static {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-elevated-2);
+  border-radius: 12px;
+  padding: 8px 6px;
+}
+
+.stepper-static {
+  justify-content: center;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.stepper-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: none;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.stepper-value {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.rir-picker {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.rir-btn {
+  padding: 10px 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated-2);
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rir-selected {
+  background: var(--accent);
+  color: #06251a;
+  border-color: var(--accent);
+}
+
+.confirm-set-btn {
+  width: 100%;
+  background: var(--accent);
+  color: #06251a;
+  border: none;
+  border-radius: 12px;
+  padding: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.rest-timer-slot:empty { display: none; }
+
+.rest-timer-card {
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--accent-dim);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+}
+
+.rest-timer-label {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.rest-timer-clock {
+  font-size: 40px;
+  font-weight: 800;
+  color: var(--accent);
+  margin: 4px 0 10px;
+}
+
+.rest-timer-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.rest-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rest-skip { color: var(--yellow); }
+
+.pain-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 4px 0;
+}
+
+.pain-label {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+input[type="range"] { width: 100%; }
+
+/* Summary */
+.summary-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+/* History */
+.chart-empty {
+  color: var(--text-dim);
+  font-size: 13px;
+  padding: 20px 0;
+  text-align: center;
+}
+
+.line-chart { width: 100%; height: auto; display: block; }
+
+.exercise-select {
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 15px;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.history-row {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.history-row-date {
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.history-row-day { color: var(--text-dim); font-weight: 500; font-size: 12px; }
+.history-row-detail { font-size: 14px; margin-top: 4px; }
+.history-row-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+/* Progress */
+.measurement-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.measurement-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.measurement-form input {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated-2);
+  color: var(--text);
+  font-size: 15px;
+}
+
+/* Settings */
+.plan-editor { display: flex; flex-direction: column; gap: 10px; }
+
+.day-editor {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--bg-elevated-2);
+}
+
+.day-editor summary {
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.exercise-editor {
+  border-top: 1px solid var(--border);
+  padding: 10px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.exercise-editor-name { font-weight: 700; }
+
+.exercise-editor label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-dim);
+  gap: 8px;
+}
+
+.exercise-editor input {
+  width: 90px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  text-align: right;
+}
+
+/* Bottom nav */
+#bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+  padding-bottom: var(--safe-bottom);
+  z-index: 10;
+}
+
+#bottom-nav.nav-hidden { display: none; }
+
+#bottom-nav button {
+  flex: 1;
+  background: none;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 0 8px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+#bottom-nav button.nav-active { color: var(--accent); }
+.nav-icon { font-size: 20px; }
+.nav-text { font-size: 11px; }
+
+@media (min-width: 700px) {
+  .screen { max-width: 560px; }
+}
