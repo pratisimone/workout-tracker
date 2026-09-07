@@ -11,6 +11,7 @@
   --red: #ef5f6b;
   --radius: 16px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
 }
 
 * { box-sizing: border-box; }
@@ -36,7 +37,7 @@ button, input, select {
 #app { min-height: 100vh; }
 
 .screen {
-  padding: 20px 16px calc(24px + var(--safe-bottom));
+  padding: calc(14px + var(--safe-top)) 16px calc(24px + var(--safe-bottom));
   max-width: 480px;
   margin: 0 auto;
   display: flex;
@@ -45,9 +46,9 @@ button, input, select {
 }
 
 .app-title {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
-  margin: 4px 0 4px;
+  margin: 0 0 4px;
 }
 
 /* Home */
@@ -198,18 +199,14 @@ button, input, select {
   color: var(--accent);
 }
 
-.exercise-name {
-  font-size: 24px;
-  font-weight: 800;
-  margin: 0;
-}
-
 .exercise-note {
-  display: block;
   font-size: 12px;
   font-weight: 500;
   color: var(--yellow);
-  margin-top: 6px;
+  background: rgba(242, 185, 75, 0.1);
+  border: 1px solid rgba(242, 185, 75, 0.3);
+  border-radius: 10px;
+  padding: 8px 10px;
 }
 
 .suggestion-box {
@@ -221,6 +218,7 @@ button, input, select {
 
 .suggestion-title { font-weight: 800; margin-bottom: 4px; }
 .suggestion-text { font-size: 13px; color: var(--text-dim); }
+.suggestion-next { font-size: 13px; font-weight: 700; margin-top: 8px; }
 
 .suggestion-increase { border-color: rgba(56, 214, 138, 0.5); }
 .suggestion-increase .suggestion-title { color: var(--accent); }
@@ -228,6 +226,74 @@ button, input, select {
 .suggestion-maintain .suggestion-title { color: var(--yellow); }
 .suggestion-deload_or_review { border-color: rgba(239, 95, 107, 0.5); }
 .suggestion-deload_or_review .suggestion-title { color: var(--red); }
+
+/* Accordion (lista esercizi del giorno) */
+.accordion-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.accordion-item {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.accordion-item-done {
+  border-color: rgba(56, 214, 138, 0.35);
+}
+
+.accordion-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.accordion-status { font-size: 16px; flex-shrink: 0; }
+
+.accordion-name {
+  font-weight: 700;
+  font-size: 15px;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.accordion-mini {
+  font-size: 12px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  max-width: 40%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.accordion-chevron {
+  font-size: 11px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.accordion-body {
+  padding: 0 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
 
 .sets-list {
   display: flex;
@@ -247,13 +313,16 @@ button, input, select {
 .set-row-done {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
+  gap: 8px;
   padding: 10px 14px;
   background: var(--bg-elevated-2);
+  cursor: pointer;
 }
 
-.set-index { font-weight: 700; font-size: 13px; color: var(--text-dim); }
-.set-summary { font-size: 13px; }
+.set-index { font-weight: 700; font-size: 13px; color: var(--text-dim); flex-shrink: 0; }
+.set-summary { font-size: 13px; flex: 1; }
+.set-edit-hint { font-size: 13px; opacity: 0.7; flex-shrink: 0; }
 
 .set-row-active { display: flex; flex-direction: column; gap: 10px; }
 
