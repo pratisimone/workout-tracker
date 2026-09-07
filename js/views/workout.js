@@ -1,9 +1,10 @@
-import { getPlan, getExerciseDef, getLastExerciseSession, saveSession, getState, updateExerciseLoad, getSessionsForDay } from "../storage.js";
+import { getPlan, getLastExerciseSession, saveSession, getState, updateExerciseLoad, getSessionsForDay } from "../storage.js";
 import { evaluateExercise, STATUS, STATUS_LABEL } from "../progression.js";
 import { createRestTimer, formatMMSS } from "../timer.js";
 import { LOAD_UNIT_LABELS } from "../data/planData.js";
 
 const DRAFT_KEY = "workoutTrackerDraft";
+const DRAFT_VERSION = 2;
 const RIR_OPTIONS = [0, 1, 2, 3, 4];
 
 function loadDraft() {
@@ -44,6 +45,21 @@ function fmtSetsSummary(sets) {
   return sets.map(s => s.reps).join(" / ");
 }
 
+function initSets(def, prevSets) {
+  const defaultRir = Math.round(def.targetRir);
+  const list = [];
+  for (let i = 0; i < def.sets; i++) {
+    const p = prevSets && prevSets[i];
+    list.push({
+      load: p ? p.load : (def.currentLoad !== null ? def.currentLoad : (def.loadUnit === "bodyweight" ? 0 : 15)),
+      reps: p ? p.reps : def.repRange[0],
+      rir: p ? Math.round(p.rir) : defaultRir,
+      done: false
+    });
+  }
+  return list;
+}
+
 export function render(container, params) {
   const day = params && params.day;
   const plan = getPlan();
@@ -55,42 +71,31 @@ export function render(container, params) {
   }
 
   let draft = loadDraft();
-  if (!draft || draft.day !== day) {
+  if (!draft || draft.version !== DRAFT_VERSION || draft.day !== day) {
+    const date = todayISO();
     draft = {
+      version: DRAFT_VERSION,
       day,
-      date: todayISO(),
+      date,
       startedAt: new Date().toISOString(),
-      exercises: [],
-      currentExerciseIndex: 0
+      expanded: { 0: true },
+      exercises: dayPlan.exercises.map(def => {
+        const prev = getLastExerciseSession(def.name, date);
+        return {
+          exerciseName: def.name,
+          completed: false,
+          pain: null,
+          evaluation: null,
+          sets: initSets(def, prev ? prev.exercise.sets : null)
+        };
+      })
     };
     saveDraft(draft);
   }
 
-  let activeSetInputs = null;
   let restTimer = null;
   let finished = false;
-
-  function currentExerciseDef() {
-    return dayPlan.exercises[draft.currentExerciseIndex];
-  }
-
-  function initSetInputsForExercise(def) {
-    const prev = getLastExerciseSession(def.name, draft.date);
-    const prevSets = prev ? prev.exercise.sets : [];
-    const defaultRir = Math.round(def.targetRir);
-    const wasUnset = def.currentLoad === null;
-    const inputs = [];
-    for (let i = 0; i < def.sets; i++) {
-      const p = prevSets[i];
-      inputs.push({
-        load: p ? p.load : (def.currentLoad !== null ? def.currentLoad : (def.loadUnit === "bodyweight" ? 0 : 15)),
-        reps: p ? p.reps : def.repRange[0],
-        rir: p ? Math.round(p.rir) : defaultRir,
-        done: false
-      });
-    }
-    return { inputs, prev, pain: null, wasUnset };
-  }
+  let finalSummary = null;
 
   function stopTimer() {
     if (restTimer) {
@@ -99,15 +104,21 @@ export function render(container, params) {
     }
   }
 
+  function persist() {
+    saveDraft(draft);
+  }
+
+  function previousSessionFor(exerciseName) {
+    return getLastExerciseSession(exerciseName, draft.date);
+  }
+
   function paint() {
     stopTimer();
     if (finished) {
       paintSummary();
       return;
     }
-    const def = currentExerciseDef();
-    if (!activeSetInputs) activeSetInputs = initSetInputsForExercise(def);
-    paintExercise(def);
+    paintWorkout();
   }
 
   function suggestionBlock(prev) {
@@ -124,27 +135,34 @@ export function render(container, params) {
     `;
   }
 
-  function paintExercise(def) {
-    const { inputs, prev } = activeSetInputs;
-    const total = dayPlan.exercises.length;
-    const idx = draft.currentExerciseIndex;
-    const targetLoadToday = prev && prev.exercise.evaluation ? prev.exercise.evaluation.nextLoad : def.currentLoad;
-    const targetRepsToday = prev && prev.exercise.evaluation ? prev.exercise.evaluation.nextRepGoalText : `${def.repRange[0]}–${def.repRange[1]}`;
+  function resultBlock(entry) {
+    const ev = entry.evaluation;
+    const label = STATUS_LABEL[ev.status];
+    return `
+      <div class="suggestion-box suggestion-${ev.status.toLowerCase()}">
+        <div class="suggestion-title">${label.emoji} ${label.text.toUpperCase()}</div>
+        <div class="suggestion-text">${ev.reason}</div>
+        <div class="suggestion-next">PROSSIMA VOLTA: ${fmtLoad(ev.nextLoad, dayPlan.exercises.find(d => d.name === entry.exerciseName).loadUnit)} · ${ev.nextRepGoalText} reps</div>
+      </div>
+    `;
+  }
 
-    const setsHtml = inputs.map((set, i) => {
+  function renderSetsList(def, entry) {
+    return entry.sets.map((set, i) => {
       if (set.done) {
         return `
-          <div class="set-row set-row-done">
+          <div class="set-row set-row-done" data-action="edit-set" data-set-index="${i}">
             <span class="set-index">Serie ${i + 1} ✓</span>
             <span class="set-summary">${fmtLoad(set.load, def.loadUnit)} × ${set.reps} reps · RIR ${set.rir}</span>
+            <span class="set-edit-hint">✏️</span>
           </div>
         `;
       }
-      const isActive = inputs.slice(0, i).every(s => s.done);
+      const isActive = entry.sets.slice(0, i).every(s => s.done);
       if (!isActive) {
         return `<div class="set-row set-row-pending"><span class="set-index">Serie ${i + 1}</span></div>`;
       }
-      const step = loadStep(def.loadUnit, set.load, activeSetInputs.wasUnset);
+      const step = loadStep(def.loadUnit, set.load, def.currentLoad === null);
       return `
         <div class="set-row set-row-active" data-set-index="${i}">
           <div class="set-index">Serie ${i + 1}</div>
@@ -166,91 +184,166 @@ export function render(container, params) {
         </div>
       `;
     }).join("");
+  }
 
-    const allDone = inputs.every(s => s.done);
+  function renderExerciseCard(def, entry, index) {
+    const isExpanded = !!draft.expanded[index];
+    const prev = previousSessionFor(def.name);
+    const allDone = entry.sets.every(s => s.done);
+    const statusIcon = entry.completed
+      ? STATUS_LABEL[entry.evaluation.status].emoji
+      : (entry.sets.some(s => s.done) ? "🔵" : "⚪");
+    const miniSummary = prev
+      ? `${fmtLoad(prev.exercise.sets[0]?.load, def.loadUnit)} × ${fmtSetsSummary(prev.exercise.sets)}`
+      : "Nessun dato precedente";
+
+    const targetLoadToday = prev && prev.exercise.evaluation ? prev.exercise.evaluation.nextLoad : def.currentLoad;
+    const targetRepsToday = prev && prev.exercise.evaluation ? prev.exercise.evaluation.nextRepGoalText : `${def.repRange[0]}–${def.repRange[1]}`;
+
+    return `
+      <div class="accordion-item ${entry.completed ? "accordion-item-done" : ""}" data-exercise-index="${index}">
+        <button class="accordion-header" data-action="toggle-exercise" data-index="${index}">
+          <span class="accordion-status">${statusIcon}</span>
+          <span class="accordion-name">${def.name}</span>
+          <span class="accordion-mini">${miniSummary}</span>
+          <span class="accordion-chevron">${isExpanded ? "▲" : "▼"}</span>
+        </button>
+        ${isExpanded ? `
+        <div class="accordion-body">
+          ${def.specialNote ? `<div class="exercise-note">⚠ ${def.specialNote}</div>` : ""}
+
+          <div class="card">
+            <div class="card-label">Ultima sessione</div>
+            <div class="card-value">${miniSummary}</div>
+            ${prev ? `<div class="card-sub">RIR: ${prev.exercise.sets.map(s => s.rir).join("/")}</div>` : ""}
+          </div>
+
+          <div class="card">
+            <div class="card-label">Obiettivo di oggi</div>
+            <div class="card-value">${fmtLoad(targetLoadToday, def.loadUnit)}</div>
+            <div class="card-sub">${targetRepsToday} reps · RIR ${def.targetRir}</div>
+          </div>
+
+          ${entry.completed ? resultBlock(entry) : suggestionBlock(prev)}
+
+          <div class="rest-timer-slot" id="rest-timer-slot-${index}"></div>
+
+          <div class="sets-list">${renderSetsList(def, entry)}</div>
+
+          <div class="pain-toggle">
+            <label class="pain-label">Dolore (opzionale): <span class="pain-value-${index}">${entry.pain ?? "-"}</span></label>
+            <input type="range" min="0" max="10" step="1" class="pain-slider" data-index="${index}" value="${entry.pain ?? 0}" />
+          </div>
+
+          <button class="primary-btn" data-action="complete-exercise" data-index="${index}" ${allDone ? "" : "disabled"}>
+            ${entry.completed ? "✓ RICALCOLA VALUTAZIONE" : "✓ COMPLETA ESERCIZIO"}
+          </button>
+        </div>` : ""}
+      </div>
+    `;
+  }
+
+  function paintWorkout() {
+    const completedCount = draft.exercises.filter(e => e.completed).length;
+    const total = dayPlan.exercises.length;
+
+    const cardsHtml = dayPlan.exercises.map((def, i) => renderExerciseCard(def, draft.exercises[i], i)).join("");
 
     container.innerHTML = `
       <div class="screen workout-screen">
         <div class="workout-header">
           <button class="icon-btn" id="exit-workout">✕</button>
-          <span class="workout-progress">Esercizio ${idx + 1}/${total}</span>
+          <span class="workout-progress">${completedCount}/${total} completati</span>
           <span class="workout-day">Giorno ${day}</span>
         </div>
 
-        <h2 class="exercise-name">${def.name}${def.specialNote ? `<span class="exercise-note">⚠ ${def.specialNote}</span>` : ""}</h2>
+        <div class="accordion-list">${cardsHtml}</div>
 
-        <div class="card">
-          <div class="card-label">Ultima sessione</div>
-          <div class="card-value">${prev ? `${fmtLoad(prev.exercise.sets[0]?.load, def.loadUnit)} × ${fmtSetsSummary(prev.exercise.sets)}` : "Nessun dato precedente"}</div>
-          ${prev ? `<div class="card-sub">RIR: ${prev.exercise.sets.map(s => s.rir).join("/")}</div>` : ""}
-        </div>
-
-        <div class="card">
-          <div class="card-label">Obiettivo di oggi</div>
-          <div class="card-value">${fmtLoad(targetLoadToday, def.loadUnit)}</div>
-          <div class="card-sub">${targetRepsToday} reps · RIR ${def.targetRir}</div>
-        </div>
-
-        ${suggestionBlock(prev)}
-
-        <div class="rest-timer-slot" id="rest-timer-slot"></div>
-
-        <div class="sets-list">${setsHtml}</div>
-
-        <div class="pain-toggle">
-          <label class="pain-label">Dolore (opzionale): <span id="pain-value">${activeSetInputs.pain ?? "-"}</span></label>
-          <input type="range" min="0" max="10" step="1" id="pain-slider" value="${activeSetInputs.pain ?? 0}" />
-        </div>
-
-        <button class="primary-btn" id="finish-exercise" ${allDone ? "" : "disabled"}>
-          ${idx === total - 1 ? "FINE ALLENAMENTO" : "ESERCIZIO COMPLETATO →"}
+        <button class="primary-btn" id="finish-workout" ${completedCount === 0 ? "disabled" : ""}>
+          TERMINA ALLENAMENTO
         </button>
       </div>
     `;
 
     container.querySelector("#exit-workout").addEventListener("click", () => {
-      if (confirm("Uscire dall'allenamento? Il progresso di questo esercizio verrà mantenuto per quando riprendi.")) {
+      if (confirm("Uscire dall'allenamento? Il progresso viene mantenuto per quando riprendi.")) {
         location.hash = "#/home";
       }
     });
 
-    container.querySelectorAll(".stepper-btn, .rir-btn").forEach(btn => {
+    container.querySelectorAll("[data-action='toggle-exercise']").forEach(btn => {
       btn.addEventListener("click", (e) => {
-        const setIndex = Number(e.target.closest("[data-set]").dataset.set);
-        const action = e.target.dataset.action;
-        const set = inputs[setIndex];
-        if (action === "inc-load") set.load = Math.round((set.load + Number(e.target.dataset.step)) * 10) / 10;
-        if (action === "dec-load") set.load = Math.max(0, Math.round((set.load - Number(e.target.dataset.step)) * 10) / 10);
-        if (action === "inc-reps") set.reps += 1;
-        if (action === "dec-reps") set.reps = Math.max(0, set.reps - 1);
-        if (action === "set-rir") set.rir = Number(e.target.dataset.value);
-        paintExercise(def);
+        const idx = e.currentTarget.dataset.index;
+        draft.expanded[idx] = !draft.expanded[idx];
+        persist();
+        paintWorkout();
       });
     });
 
-    container.querySelectorAll("[data-action='confirm-set']").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        const setIndex = Number(e.target.closest("[data-set-index]").dataset.setIndex);
-        inputs[setIndex].done = true;
-        persistProgress();
-        const isLastSet = setIndex === inputs.length - 1;
-        paintExercise(def);
-        if (!isLastSet) startRestTimer(def.restSeconds);
+    container.querySelectorAll(".accordion-body").forEach(body => {
+      const index = Number(body.closest("[data-exercise-index]").dataset.exerciseIndex);
+      const def = dayPlan.exercises[index];
+      const entry = draft.exercises[index];
+
+      body.querySelectorAll(".stepper-btn, .rir-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          const setIndex = Number(e.target.closest("[data-set]").dataset.set);
+          const action = e.target.dataset.action;
+          const set = entry.sets[setIndex];
+          if (action === "inc-load") set.load = Math.round((set.load + Number(e.target.dataset.step)) * 10) / 10;
+          if (action === "dec-load") set.load = Math.max(0, Math.round((set.load - Number(e.target.dataset.step)) * 10) / 10);
+          if (action === "inc-reps") set.reps += 1;
+          if (action === "dec-reps") set.reps = Math.max(0, set.reps - 1);
+          if (action === "set-rir") set.rir = Number(e.target.dataset.value);
+          persist();
+          paintWorkout();
+        });
       });
+
+      body.querySelectorAll("[data-action='confirm-set']").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          const setIndex = Number(e.target.closest("[data-set-index]").dataset.setIndex);
+          entry.sets[setIndex].done = true;
+          persist();
+          const isLastSet = setIndex === entry.sets.length - 1;
+          paintWorkout();
+          if (!isLastSet) startRestTimer(index, def.restSeconds);
+        });
+      });
+
+      body.querySelectorAll("[data-action='edit-set']").forEach(row => {
+        row.addEventListener("click", (e) => {
+          const setIndex = Number(e.currentTarget.dataset.setIndex);
+          entry.sets[setIndex].done = false;
+          entry.completed = false;
+          persist();
+          paintWorkout();
+        });
+      });
+
+      const painSlider = body.querySelector(".pain-slider");
+      if (painSlider) {
+        painSlider.addEventListener("input", (e) => {
+          entry.pain = Number(e.target.value);
+          const label = container.querySelector(`.pain-value-${index}`);
+          if (label) label.textContent = entry.pain;
+        });
+        painSlider.addEventListener("change", persist);
+      }
+
+      const completeBtn = body.querySelector("[data-action='complete-exercise']");
+      if (completeBtn) {
+        completeBtn.addEventListener("click", () => onCompleteExercise(index));
+      }
     });
 
-    const painSlider = container.querySelector("#pain-slider");
-    painSlider.addEventListener("input", (e) => {
-      activeSetInputs.pain = Number(e.target.value);
-      container.querySelector("#pain-value").textContent = activeSetInputs.pain;
-    });
-
-    container.querySelector("#finish-exercise").addEventListener("click", onFinishExercise);
+    container.querySelector("#finish-workout").addEventListener("click", onFinishWorkout);
   }
 
-  function startRestTimer(seconds) {
-    const slot = container.querySelector("#rest-timer-slot");
+  function startRestTimer(index, seconds) {
+    const slot = container.querySelector(`#rest-timer-slot-${index}`);
     if (!slot) return;
+    stopTimer();
     let remaining = seconds;
     function draw() {
       slot.innerHTML = `
@@ -279,15 +372,13 @@ export function render(container, params) {
     draw();
   }
 
-  function persistProgress() {
-    saveDraft(draft);
-  }
-
-  function onFinishExercise() {
+  function onCompleteExercise(index) {
     stopTimer();
-    const def = currentExerciseDef();
-    const sets = activeSetInputs.inputs.map(s => ({ load: s.load, reps: s.reps, rir: s.rir, pain: activeSetInputs.pain }));
-    const previousExerciseSession = activeSetInputs.prev ? activeSetInputs.prev.exercise : null;
+    const def = dayPlan.exercises[index];
+    const entry = draft.exercises[index];
+    const sets = entry.sets.map(s => ({ load: s.load, reps: s.reps, rir: s.rir, pain: entry.pain }));
+    const prev = previousSessionFor(def.name);
+    const previousExerciseSession = prev ? prev.exercise : null;
     const evaluation = evaluateExercise({
       def,
       sets,
@@ -299,28 +390,27 @@ export function render(container, params) {
       updateExerciseLoad(day, def.name, evaluation.nextLoad);
     }
 
-    draft.exercises.push({ exerciseName: def.name, sets, evaluation });
+    entry.completed = true;
+    entry.evaluation = evaluation;
+    persist();
+    paintWorkout();
+  }
 
-    const isLast = draft.currentExerciseIndex === dayPlan.exercises.length - 1;
-    if (isLast) {
-      finalizeSession();
-      finished = true;
-      activeSetInputs = null;
-      paint();
+  function onFinishWorkout() {
+    const incompleteCount = draft.exercises.filter(e => !e.completed).length;
+    if (incompleteCount > 0 && !confirm(`${incompleteCount} esercizi non sono stati completati. Terminare comunque l'allenamento?`)) {
       return;
     }
-
-    draft.currentExerciseIndex += 1;
-    persistProgress();
-    activeSetInputs = null;
+    stopTimer();
+    finalizeSession();
+    finished = true;
     paint();
   }
 
-  let finalSummary = null;
-
   function finalizeSession() {
+    const completedExercises = draft.exercises.filter(e => e.completed);
     const durationMin = Math.max(1, Math.round((Date.now() - new Date(draft.startedAt).getTime()) / 60000));
-    const volume = draft.exercises.reduce((sum, ex) => sum + ex.sets.reduce((s, set) => s + (typeof set.load === "number" ? set.load * set.reps : 0), 0), 0);
+    const volume = completedExercises.reduce((sum, ex) => sum + ex.sets.reduce((s, set) => s + (typeof set.load === "number" ? set.load * set.reps : 0), 0), 0);
 
     const previousSameDay = getSessionsForDay(day)[0] || null;
     let volumeChangePercent = null;
@@ -329,7 +419,7 @@ export function render(container, params) {
       if (prevVolume > 0) volumeChangePercent = Math.round(((volume - prevVolume) / prevVolume) * 1000) / 10;
     }
 
-    const increasedExercise = draft.exercises.find(ex => ex.evaluation.status === STATUS.INCREASE);
+    const increasedExercise = completedExercises.find(ex => ex.evaluation.status === STATUS.INCREASE);
     const bestResult = increasedExercise
       ? { name: increasedExercise.exerciseName, summary: `${fmtSetsSummary(increasedExercise.sets)} @ ${increasedExercise.sets[0].load}` }
       : null;
@@ -339,17 +429,16 @@ export function render(container, params) {
       day,
       date: draft.date,
       durationMin,
-      exercises: draft.exercises
+      exercises: completedExercises.map(e => ({ exerciseName: e.exerciseName, sets: e.sets, evaluation: e.evaluation }))
     };
     saveSession(session);
     clearDraft();
 
     finalSummary = {
       durationMin,
-      exerciseCount: draft.exercises.length,
+      exerciseCount: completedExercises.length,
       volumeChangePercent,
-      bestResult,
-      nextTime: increasedExercise ? increasedExercise.evaluation : null
+      bestResult
     };
   }
 
