@@ -71,7 +71,10 @@ export function render(container, params) {
   }
 
   let draft = loadDraft();
-  if (!draft || draft.version !== DRAFT_VERSION || draft.day !== day) {
+  const draftMatchesPlan = draft && Array.isArray(draft.exercises)
+    && draft.exercises.length === dayPlan.exercises.length
+    && dayPlan.exercises.every((def, i) => draft.exercises[i].exerciseName === def.name && draft.exercises[i].sets.length === def.sets);
+  if (!draft || draft.version !== DRAFT_VERSION || draft.day !== day || !draftMatchesPlan) {
     const date = todayISO();
     draft = {
       version: DRAFT_VERSION,

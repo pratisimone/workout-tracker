@@ -1,4 +1,4 @@
-import { getPlan, updatePlanExercise, exportJSON, exportSessionsCSV, importJSON, resetAllData } from "../storage.js";
+import { getPlan, updatePlanExercise, exportJSON, exportSessionsCSV, importJSON, resetAllData, exportPlanJSON, parsePlanJSON, diffPlan, applyPlan } from "../storage.js";
 import { LOAD_UNIT_LABELS } from "../data/planData.js";
 
 function downloadFile(filename, content, mime) {
@@ -44,6 +44,15 @@ export function render(container) {
         </div>
 
         <div class="card">
+          <div class="card-label">Cambia scheda da file JSON</div>
+          <div class="card-sub">Sostituisce solo la scheda dei giorni presenti nel file. Storico e misurazioni restano intatti.</div>
+          <label class="secondary-btn file-label">IMPORTA SCHEDA (JSON)
+            <input type="file" id="import-plan-file" accept="application/json,.json" hidden />
+          </label>
+          <button class="secondary-btn" id="export-plan">ESPORTA SCHEDA ATTUALE (MODELLO)</button>
+        </div>
+
+        <div class="card">
           <div class="card-label">Backup ed export</div>
           <button class="secondary-btn" id="export-json">EXPORT JSON</button>
           <button class="secondary-btn" id="export-csv">EXPORT CSV ALLENAMENTI</button>
@@ -77,6 +86,36 @@ export function render(container) {
       });
       alert("Scheda aggiornata.");
       paint();
+    });
+
+    container.querySelector("#export-plan").addEventListener("click", () => {
+      downloadFile("scheda-attuale.json", exportPlanJSON(), "application/json");
+    });
+    container.querySelector("#import-plan-file").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        let newDays;
+        try {
+          newDays = parsePlanJSON(reader.result);
+        } catch (err) {
+          alert("Scheda non importata.\n\n" + err.message);
+          return;
+        }
+        const lines = diffPlan(newDays).map(d => {
+          let line = `Giorno ${d.day}: ${d.count} esercizi`;
+          if (d.added.length) line += `\n  + nuovi: ${d.added.join(", ")}`;
+          if (d.removed.length) line += `\n  - rimossi: ${d.removed.join(", ")}`;
+          return line;
+        });
+        const msg = `Sostituire la scheda?\n\n${lines.join("\n")}\n\nStorico e misurazioni restano. Un eventuale allenamento in corso non terminato verrà scartato.`;
+        if (!confirm(msg)) return;
+        applyPlan(newDays);
+        alert("Scheda aggiornata.");
+        paint();
+      };
+      reader.readAsText(file);
     });
 
     container.querySelector("#export-json").addEventListener("click", () => {
